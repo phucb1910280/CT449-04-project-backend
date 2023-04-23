@@ -1,5 +1,5 @@
 import express from 'express';
-import bodyParser from 'body-parser';
+import bodyParser, { json } from 'body-parser';
 import { MongoClient } from 'mongodb';
 
 const products = [{
@@ -102,9 +102,6 @@ app.use(bodyParser.json());
 app.get('/api/products', async (req, res) => {
     const client = await MongoClient.connect(
         'mongodb://127.0.0.1:27017',
-        // {
-        //     useNewUrlParcer: true, useUnifiedTopology: true,
-        // },
     );
     const db = client.db('project-vue-db');
     const products = await db.collection('products').find({}).toArray();
@@ -112,18 +109,35 @@ app.get('/api/products', async (req, res) => {
     client.close();
 });
 
-app.get('/api/products/:productId', (req, res) => {
+app.get('/api/products/:productId', async (req, res) => {
     const { productId } = req.params;
-    const product = products.find((product) => product.id === productId);
+    const client = await MongoClient.connect(
+        'mongodb://127.0.0.1:27017',
+    );
+    const db = client.db('project-vue-db');
+    const product = await db.collection('products').findOne({ id: productId});
+    
     if (product) {
         res.status(200).json(product);
     } else {
         res.status(404).json('Could not find the product!');
     }
+    client.close();
 });
 
-app.get('/api/users/:userId/cart', (req, res) => {
+app.get('/api/users/:userId/cart', async (req, res) => {
+    const { userId } = req.params;
+    const client = await MongoClient.connect(
+        'mongodb://127.0.0.1:27017',
+    );
+    const db = client.db('project-vue-db');
+    const user = await db.collection('users').findOne({ id: userId });
+    if (!user) return res.status(404).json('Can not find user!');
+    const products = await db.collection('products').find({}).toArray();
+    const cartItemsIds = user.cartItems;
+    const cartItems = cartItemsIds.map(id => products.find(product => product.id === id));
     res.status(200).json(cartItems);
+    client.close();
 });
 
 app.post('/api/users/:userId/cart', (req, res) => {
