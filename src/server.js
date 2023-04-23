@@ -140,15 +140,21 @@ app.get('/api/users/:userId/cart', async (req, res) => {
     client.close();
 });
 
-app.post('/api/users/:userId/cart', (req, res) => {
+app.post('/api/users/:userId/cart', async (req, res) => {
+    const {userId} =  req.params;
     const {productId} =  req.body;
-    const product = products.find(product => product.id === productId);
-    if (product) {
-        cartItems.push(product);
-        res.status(200).json(cartItems);
-    } else {
-        res.status(404).json('Could not find the product!');
-    }
+    const client = await MongoClient.connect(
+        'mongodb://127.0.0.1:27017',
+    );
+    const db = client.db('project-vue-db');
+    await db.collection('users').updateOne({id: userId}, {
+        $addToSet: { cartItems : productId},
+    });
+    const user = await db.collection('users').findOne({id: userId});
+    const cartItemsIds = user.cartItems;
+    const cartItems = cartItemsIds.map(id => products.find(product => product.id === id));
+    res.status(200).json(cartItems);
+    client.close();
 }); 
 
 app.delete('/api/users/:userId/cart/:productId', (req, res)=> {
